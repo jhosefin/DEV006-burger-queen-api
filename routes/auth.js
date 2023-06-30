@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 const jwt = require('jsonwebtoken');
-const config = require('../config');
 const bcrypt = require('bcrypt');
+const config = require('../config');
 
 const { secret } = config;
 
@@ -19,7 +19,7 @@ module.exports = (app, nextMain) => {
    * @code {400} si no se proveen `email` o `password` o ninguno de los dos
    * @auth No requiere autenticación
    */
-  app.post('/auth', async (req, resp, next) => {
+  app.post('/login', async (req, resp, next) => {
     const { email, password } = req.body;
     const { dbUrl } = app.get('config');
     if (!email || !password) {
@@ -34,7 +34,7 @@ module.exports = (app, nextMain) => {
     // coinciden con un user en la base de datos
     // Si coinciden, manda un access token creado con jwt
 
-    // Fetch user data from the database based on the email
+     // Fetch user data from the database based on the email
   const user = await usersCollection.findOne({ email });
 
   if (!user) {
@@ -49,10 +49,10 @@ module.exports = (app, nextMain) => {
   }
 
   // Generate a JWT token
-  const token = jwt.sign({ userId: user._id }, secret);
-console.log(token)
+  const accessToken = jwt.sign({ userId: user._id }, secret);
   // Include the token in the response
-  resp.json({ token });
+      resp.status(200).json({ accessToken });
+
   });
 
   return nextMain();
