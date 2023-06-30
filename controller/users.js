@@ -13,7 +13,7 @@ module.exports = {
       const users = await collection.find({}).toArray();
       resp.send(users);
     } catch (err) {
-      console.log("mostrar error al traer usuarios de la colección", err);
+      /* console.log("mostrar error al traer usuarios de la colección", err); */
       next(err);
     } finally {
       client.close();
