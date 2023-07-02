@@ -111,7 +111,32 @@ module.exports = (app, next) => {
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.get('/users/:uid', requireAuth, (req, resp) => {
+  app.get('/users/{uid}', requireAuth, async (req, resp) => {
+    const { uid } = req.params;
+    const email = uid;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+
+    // Verificar si ya existe una usuaria con el id insertado
+  const users = await usersCollection.findOne({ email });
+
+  if (users) {
+    await client.close();
+    resp.status(200).json({
+      id: users._id,
+      email: email,
+      role: users.role,
+    });
+  } else {
+    await client.close();
+    resp.status(404).json({
+      error: 'Usuario no encontrado',
+    });
+  }
+
   });
 
   /**
@@ -197,7 +222,7 @@ module.exports = (app, next) => {
    * @code {403} una usuaria no admin intenta de modificar sus `roles`
    * @code {404} si la usuaria solicitada no existe
    */
-  app.put('/users/:uid', requireAuth, (req, resp, next) => {
+  app.put('/users/{uid}', requireAuth, (req, resp, next) => {
   });
 
   /**
