@@ -1,4 +1,4 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const config = require('../config');
 
@@ -111,7 +111,7 @@ module.exports = (app, next) => {
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.get('/users/{uid}', requireAuth, async (req, resp) => {
+  app.get('/users/:uid', requireAuth, async (req, resp) => {
     const { uid } = req.params;
     const email = uid;
 
@@ -119,15 +119,20 @@ module.exports = (app, next) => {
     await client.connect();
     const db = client.db();
     const usersCollection = db.collection('users');
-
-    // Verificar si ya existe una usuaria con el id insertado
-  const users = await usersCollection.findOne({ email });
+let users;
+    // Verificar si ya existe una usuaria con el id o email insertado
+    if(uid.includes("@")){
+      users = await usersCollection.findOne({ email });
+    }else if(uid === Number){
+      const _id = new ObjectId(uid)
+      users = await usersCollection.findOne({ _id });
+    }
 
   if (users) {
     await client.close();
     resp.status(200).json({
       id: users._id,
-      email: email,
+      email: users.email,
       role: users.role,
     });
   } else {
