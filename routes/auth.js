@@ -36,20 +36,21 @@ module.exports = (app, nextMain) => {
 
      // Fetch user data from the database based on the email
   const user = await usersCollection.findOne({ email });
-
+console.log(user)
   if (!user) {
     return next(400); // User not found
   }
-
+  console.log(bcrypt)
   // Compare the provided password with the hashed password stored in the database
   const passwordMatch = await bcrypt.compare(password, user.password);
 
   if (!passwordMatch) {
+    console.log(passwordMatch,"invalid")
     return next(400); // Invalid password
   }
 
   // Generate a JWT token
-  const accessToken = jwt.sign({ userId: user._id }, secret);
+  const accessToken = jwt.sign({ userId: user._id, rol: user.role, email: user.email }, secret);
   // Include the token in the response
       resp.status(200).json({ accessToken });
 

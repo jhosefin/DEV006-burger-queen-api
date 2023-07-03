@@ -1,4 +1,4 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const config = require('../config');
 
@@ -20,7 +20,7 @@ const initAdminUser = async (app, next) => {
   const adminUser = {
     email: adminEmail,
     password: bcrypt.hashSync(adminPassword, 10),
-    roles: "admin",
+    role: "admin",
   };
 
   try {
@@ -111,7 +111,7 @@ module.exports = (app, next) => {
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.get('/users/{uid}', requireAuth, async (req, resp) => {
+  app.get('/users/:uid', requireAuth, async (req, resp) => {
     const { uid } = req.params;
     const email = uid;
 
@@ -119,15 +119,20 @@ module.exports = (app, next) => {
     await client.connect();
     const db = client.db();
     const usersCollection = db.collection('users');
-
-    // Verificar si ya existe una usuaria con el id insertado
-  const users = await usersCollection.findOne({ email });
+let users;
+    // Verificar si ya existe una usuaria con el id o email insertado
+    if(uid.includes("@")){
+      users = await usersCollection.findOne({ email });
+    }else if(uid === Number){
+      const _id = new ObjectId(uid)
+      users = await usersCollection.findOne({ _id });
+    }
 
   if (users) {
     await client.close();
     resp.status(200).json({
       id: users._id,
-      email: email,
+      email: users.email,
       role: users.role,
     });
   } else {
@@ -161,6 +166,7 @@ module.exports = (app, next) => {
   app.post('/users', requireAdmin, async (req, resp, next) => {
     // TODO: implementar la ruta para agregar
     // nuevos usuarios
+
     const { email, password, role } = req.body;
     if (!email || !password || !role) {
       return next(400);
@@ -173,6 +179,7 @@ module.exports = (app, next) => {
     const usersCollection = db.collection('users');
     // Verificar si ya existe una usuaria con el mismo email
     const user = await usersCollection.findOne({ email });
+
     if (!user) {
       const newUser = {
         email,
@@ -190,10 +197,9 @@ module.exports = (app, next) => {
     });
   }
   if (user) {
-    console.log('Usuario existe ');
     await client.close();
     resp.status(403).json({
-      error: "string"
+      error: "Usuario existe "
     });
   }
 
@@ -201,7 +207,7 @@ module.exports = (app, next) => {
 });
 
   /**
-   * @name PUT /users
+   * @name PATCH /users
    * @description Modifica una usuaria
    * @params {String} :uid `id` o `email` de la usuaria a modificar
    * @path {PUT} /users
@@ -222,7 +228,76 @@ module.exports = (app, next) => {
    * @code {403} una usuaria no admin intenta de modificar sus `roles`
    * @code {404} si la usuaria solicitada no existe
    */
-  app.put('/users/{uid}', requireAuth, (req, resp, next) => {
+  app.patch('/users/:uid', requireAuth, async (req, resp, next) => {
+    const { uid } = req.params;
+    const { email, password, role } = req.body
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+    let user;
+
+
+    if(email === "" || password === ""){
+      await client.close();
+      resp.status(400).json({
+        error: 'Los valores email y password no pueden estar vacios',
+      });
+    }else {
+
+      // Verificar si el token pertenece a una usuaria administradora
+      const isAdmin = req.isAdmin === true;
+
+      // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+      const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+      console.log(req.userId)
+      console.log(uid)
+      if (!isAuthorized) {
+        await client.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para modificar este usuario',
+        });
+      }
+
+      if (!isAdmin && role && role !== req.isAdmin) {
+        await client.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para cambiar el role del usuario',
+        });
+      }
+
+      // Verificar si ya existe una usuaria con el id o email insertado
+      if (uid.includes('@')) {
+        user = await usersCollection.findOneAndUpdate(
+          { email: uid },
+          { $set: req.body },
+          { returnOriginal: false }
+        );
+      } else {
+          const userId = new ObjectId(uid);
+          user = await usersCollection.findOneAndUpdate(
+            { _id: userId },
+            { $set: req.body },
+            { returnOriginal: false }
+          );
+      }
+
+      if (user.value) {
+        await client.close();
+        return resp.status(200).json({
+          id: user.value._id,
+          email: user.value.email,
+          password: bcrypt.hashSync(password, 10),///pendiente si se cambie password no genera token en la utenticación
+          role: user.value.role,
+        });
+      } else {
+        await client.close();
+        return resp.status(404).json({
+          error: 'Usuario no encontrado',
+        });
+      }
+    }
   });
 
   /**
