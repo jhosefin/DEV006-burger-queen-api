@@ -155,7 +155,7 @@ describe('POST /users', () => {
       body: {
         email: 'test1@test.test',
         password: '12345',
-        roles: "user",
+        roles: 'user',
       },
     })
       .then((resp) => {
@@ -177,7 +177,7 @@ describe('POST /users', () => {
       body: {
         email: 'admin1@test.test',
         password: '12345',
-        roles: "admin",
+        roles: 'admin',
       },
     })
       .then((resp) => {
@@ -189,7 +189,7 @@ describe('POST /users', () => {
         expect(typeof json.email).toBe('string');
         expect(typeof json.password).toBe('undefined');
         expect(typeof json.roles).toBe('object');
-        expect(json.roles).toBe("admin");
+        expect(json.roles).toBe('admin');
       })
   ));
 
@@ -226,7 +226,7 @@ describe('PUT /users/:uid', () => {
   it('should fail with 403 when not admin tries to change own roles', () => (
     fetchAsTestUser('/users/test@test.test', {
       method: 'PUT',
-      body: { roles: "admin"},
+      body: { roles: 'admin' },
     })
       .then((resp) => expect(resp.status).toBe(403))
   ));

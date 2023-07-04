@@ -30,8 +30,8 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-  app.get('/orders', requireAuth, (req, resp, next) => {
-  });
+    app.get('/orders', requireAuth, (req, resp, next) => {
+    });
 
   /**
    * @name GET /orders/:orderId
