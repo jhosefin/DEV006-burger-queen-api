@@ -20,7 +20,7 @@ const initAdminUser = async (app, next) => {
   const adminUser = {
     email: adminEmail,
     password: bcrypt.hashSync(adminPassword, 10),
-    role: "admin",
+    role: 'admin',
   };
 
   try {
@@ -52,7 +52,7 @@ const initAdminUser = async (app, next) => {
  * response <- middleware4 <- middleware3   <---
  *
  * la gracia es que la petición va pasando por cada una de las funciones
- * intermedias o "middlewares" hasta llegar a la función de la ruta, luego esa
+ * intermedias o 'middlewares' hasta llegar a la función de la ruta, luego esa
  * función genera la respuesta y esta pasa nuevamente por otras funciones
  * intermedias hasta responder finalmente a la usuaria.
  *
@@ -119,29 +119,41 @@ module.exports = (app, next) => {
     await client.connect();
     const db = client.db();
     const usersCollection = db.collection('users');
-let users;
+    let users;
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+    const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+
+    if (!isAuthorized) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para hacer esta petición',
+      });
+    }
     // Verificar si ya existe una usuaria con el id o email insertado
-    if(uid.includes("@")){
+    if (uid.includes('@')) {
       users = await usersCollection.findOne({ email });
-    }else if(uid === Number){
-      const _id = new ObjectId(uid)
+    } else if (uid === Number) {
+      const _id = new ObjectId(uid);
       users = await usersCollection.findOne({ _id });
     }
 
-  if (users) {
-    await client.close();
-    resp.status(200).json({
-      id: users._id,
-      email: users.email,
-      role: users.role,
-    });
-  } else {
-    await client.close();
-    resp.status(404).json({
-      error: 'Usuario no encontrado',
-    });
-  }
-
+    if (users) {
+      await client.close();
+      resp.status(200).json({
+        id: users._id,
+        email: users.email,
+        role: users.role,
+      });
+    } else {
+      await client.close();
+      resp.status(404).json({
+        error: 'Usuario no encontrado',
+      });
+    }
   });
 
   /**
@@ -166,7 +178,6 @@ let users;
   app.post('/users', requireAdmin, async (req, resp, next) => {
     // TODO: implementar la ruta para agregar
     // nuevos usuarios
-
     const { email, password, role } = req.body;
     if (!email || !password || !role) {
       return next(400);
@@ -184,27 +195,25 @@ let users;
       const newUser = {
         email,
         password: bcrypt.hashSync(password, 10),
-        role: role,
-    };
+        role,
+      };
 
-    const insertedUser = await usersCollection.insertOne(newUser);
-    await client.close();
-  
-    resp.status(200).json({
-      id: insertedUser.insertedId,
-      email: email,
-      role: role,
-    });
-  }
-  if (user) {
-    await client.close();
-    resp.status(403).json({
-      error: "Usuario existe "
-    });
-  }
-
-
-});
+      const insertedUser = await usersCollection.insertOne(newUser);
+      console.log(insertedUser)
+      await client.close();
+      resp.status(200).json({
+        id: insertedUser.insertedId,
+        email,
+        role,
+      });
+    }
+    if (user) {
+      await client.close();
+      resp.status(403).json({
+        error: 'Usuario existe ',
+      });
+    }
+  });
 
   /**
    * @name PATCH /users
@@ -228,9 +237,9 @@ let users;
    * @code {403} una usuaria no admin intenta de modificar sus `roles`
    * @code {404} si la usuaria solicitada no existe
    */
-  app.patch('/users/:uid', requireAuth, async (req, resp, next) => {
+  app.patch('/users/:uid', requireAuth, async (req, resp/* , next */) => {
     const { uid } = req.params;
-    const { email, password, role } = req.body
+    const { email, password, role } = req.body;
 
     const client = new MongoClient(config.dbUrl);
     await client.connect();
@@ -238,21 +247,18 @@ let users;
     const usersCollection = db.collection('users');
     let user;
 
-
-    if(email === "" || password === ""){
+    if (email === '' || password === '' || Object.keys(req.body).length === 0) {
       await client.close();
       resp.status(400).json({
-        error: 'Los valores email y password no pueden estar vacios',
+        error: 'Los valores a actualizar no pueden estar vacios',
       });
-    }else {
-
+    } else {
       // Verificar si el token pertenece a una usuaria administradora
       const isAdmin = req.isAdmin === true;
 
       // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
       const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
-      console.log(req.userId)
-      console.log(uid)
+
       if (!isAuthorized) {
         await client.close();
         return resp.status(403).json({
@@ -267,20 +273,26 @@ let users;
         });
       }
 
+      // Verificar si la contraseña se está actualizando
+      if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10); // Encriptar la nueva contraseña
+        req.body.password = hashedPassword; // Actualizar la contraseña en req.body
+      }
+
       // Verificar si ya existe una usuaria con el id o email insertado
       if (uid.includes('@')) {
         user = await usersCollection.findOneAndUpdate(
           { email: uid },
           { $set: req.body },
-          { returnOriginal: false }
+          { returnOriginal: false },
         );
       } else {
-          const userId = new ObjectId(uid);
-          user = await usersCollection.findOneAndUpdate(
-            { _id: userId },
-            { $set: req.body },
-            { returnOriginal: false }
-          );
+        const userId = new ObjectId(uid);
+        user = await usersCollection.findOneAndUpdate(
+          { _id: userId },
+          { $set: req.body },
+          { returnOriginal: false },
+        );
       }
 
       if (user.value) {
@@ -288,15 +300,22 @@ let users;
         return resp.status(200).json({
           id: user.value._id,
           email: user.value.email,
-          password: bcrypt.hashSync(password, 10),///pendiente si se cambie password no genera token en la utenticación
           role: user.value.role,
         });
       } else {
+        // Si el usuario no existe y el usuario es administrador, devolver un error 404
+        if (isAdmin) {
+          await client.close();
+          return resp.status(404).json({
+            error: 'Usuario no encontrado',
+          });
+        }
         await client.close();
         return resp.status(404).json({
           error: 'Usuario no encontrado',
         });
       }
+
     }
   });
 
@@ -316,8 +335,47 @@ let users;
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.delete('/users/:uid', requireAuth, (req, resp, next) => {
-  });
+  app.delete('/users/:uid', requireAuth, async (req, resp/* , next */) => {
+    const { uid } = req.params;
 
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+    const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+
+    if (!isAuthorized) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para eliminar este usuario',
+      });
+    }
+
+    // Verificar si ya existe una usuaria con el id o email insertado
+    let user;
+    if (uid.includes('@')) {
+      user = await usersCollection.findOneAndDelete({ email: uid });
+    } else {
+      const userId = new ObjectId(uid);
+      user = await usersCollection.findOneAndDelete({ _id: userId });
+    }
+    if (user.value) {
+      await client.close();
+      return resp.status(200).json({
+        id: user.value._id,
+        email: user.value.email,
+        role: user.value.role,
+      });
+    }
+    await client.close();
+    return resp.status(404).json({
+      error: 'Usuario no encontrado',
+    });
+  });
   initAdminUser(app, next);
 };
