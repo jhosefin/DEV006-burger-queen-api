@@ -199,6 +199,7 @@ module.exports = (app, next) => {
       };
 
       const insertedUser = await usersCollection.insertOne(newUser);
+      console.log(insertedUser)
       await client.close();
       resp.status(200).json({
         id: insertedUser.insertedId,
@@ -246,10 +247,10 @@ module.exports = (app, next) => {
     const usersCollection = db.collection('users');
     let user;
 
-    if (email === '' || password === '') {
+    if (email === '' || password === '' || Object.keys(req.body).length === 0) {
       await client.close();
       resp.status(400).json({
-        error: 'Los valores email y password no pueden estar vacios',
+        error: 'Los valores a actualizar no pueden estar vacios',
       });
     } else {
       // Verificar si el token pertenece a una usuaria administradora
@@ -301,11 +302,20 @@ module.exports = (app, next) => {
           email: user.value.email,
           role: user.value.role,
         });
+      } else {
+        // Si el usuario no existe y el usuario es administrador, devolver un error 404
+        if (isAdmin) {
+          await client.close();
+          return resp.status(404).json({
+            error: 'Usuario no encontrado',
+          });
+        }
+        await client.close();
+        return resp.status(404).json({
+          error: 'Usuario no encontrado',
+        });
       }
-      await client.close();
-      return resp.status(404).json({
-        error: 'Usuario no encontrado',
-      });
+
     }
   });
 

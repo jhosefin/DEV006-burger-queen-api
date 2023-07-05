@@ -1,6 +1,7 @@
 const {
   requireAuth,
 } = require('../middleware/auth');
+const config = require('../config');
 
 /** @module orders */
 module.exports = (app, nextMain) => {
@@ -30,7 +31,45 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-    app.get('/orders', requireAuth, (req, resp, next) => {
+    app.get('/orders', requireAuth, async (req, resp, next) => {
+      const { page = 1, limit = 10 } = req.query;
+
+      // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
+      const client = new MongoClient(config.dbUrl);
+      await client.connect();
+      const db = client.db();
+      const usersCollection = db.collection('orders');
+      // Utiliza la información de paginación para aplicar la paginación en los resultados
+
+      // Ejemplo de respuesta con datos de prueba
+      const orders = [
+        {
+          _id: 'order1',
+          userId: 'user1',
+          client: 'client1',
+          products: [
+            { qty: 2, product: { name: 'Product 1' } },
+            { qty: 3, product: { name: 'Product 2' } },
+          ],
+          status: 'pending',
+          dateEntry: new Date(),
+        },
+        {
+          _id: 'order2',
+          userId: 'user1',
+          client: 'client2',
+          products: [
+            { qty: 1, product: { name: 'Product 3' } },
+            { qty: 2, product: { name: 'Product 4' } },
+          ],
+          status: 'delivered',
+          dateEntry: new Date(),
+          dateProcessed: new Date(),
+        },
+      ];
+
+      resp.status(200).json(orders);
+
     });
 
   /**

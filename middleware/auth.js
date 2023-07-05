@@ -21,6 +21,7 @@ module.exports = (secret) => (req, resp, next) => {
     req.userId = decodedToken.userId;
     req.isAdmin = decodedToken.rol;
     req.thisEmail = decodedToken.email;
+
     if (req.isAdmin === 'admin') {
       req.isAdmin = true;
     } else {

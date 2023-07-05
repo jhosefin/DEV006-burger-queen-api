@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1688506222284" clover="3.2.0">
-  <project timestamp="1688506222284" name="All files">
-    <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0" elements="0" coveredelements="0" complexity="0" loc="0" ncloc="0" packages="0" files="0" classes="0"/>
+<coverage generated="1688595519075" clover="3.2.0">
+  <project timestamp="1688595519075" name="All files">
+    <metrics statements="5" coveredstatements="5" conditionals="12" coveredconditionals="8" methods="0" coveredmethods="0" elements="17" coveredelements="13" complexity="0" loc="5" ncloc="5" packages="1" files="1" classes="1"/>
+    <file name="config.js" path="C:\Users\Rebeca\Desktop\Laboratoria\Proyecto 5\DEV006-burger-queen-api\config.js">
+      <metrics statements="5" coveredstatements="5" conditionals="12" coveredconditionals="8" methods="0" coveredmethods="0"/>
+      <line num="1" count="2" type="cond" truecount="1" falsecount="2"/>
+      <line num="2" count="2" type="cond" truecount="1" falsecount="2"/>
+      <line num="3" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="4" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="5" count="2" type="cond" truecount="2" falsecount="0"/>
+    </file>
   </project>
 </coverage>
