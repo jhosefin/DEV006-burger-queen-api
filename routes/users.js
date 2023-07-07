@@ -199,7 +199,7 @@ module.exports = (app, next) => {
       };
 
       const insertedUser = await usersCollection.insertOne(newUser);
-      console.log(insertedUser)
+
       await client.close();
       resp.status(200).json({
         id: insertedUser.insertedId,

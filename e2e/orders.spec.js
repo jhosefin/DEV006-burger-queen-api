@@ -1,4 +1,4 @@
-/* const {
+const {
   fetch,
   fetchAsTestUser,
   fetchAsAdmin,
@@ -89,7 +89,7 @@ describe('POST /orders', () => {
   ));
 });
 
-describe('GET /orders', () => {
+/* describe('GET /orders', () => {
   it('should fail with 401 when no auth', () => (
     fetch('/orders')
       .then((resp) => expect(resp.status).toBe(401))

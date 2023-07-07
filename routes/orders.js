@@ -1,3 +1,4 @@
+const { MongoClient } = require('mongodb');
 const {
   requireAuth,
 } = require('../middleware/auth');
@@ -32,44 +33,33 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    */
     app.get('/orders', requireAuth, async (req, resp, next) => {
-      const { page = 1, limit = 10 } = req.query;
-
-      // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
       const client = new MongoClient(config.dbUrl);
       await client.connect();
       const db = client.db();
-      const usersCollection = db.collection('orders');
+      const collection = db.collection('orders');
+
+      const { page = 1, limit = 10 } = req.query;
+      const pageNumber = parseInt(page);
+      const limitNumber = parseInt(limit);
+
+      // Calcular el número total de usuarios
+      const totalOrders = await collection.countDocuments();
+      // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
+      const totalPages = Math.ceil(totalOrders / limitNumber);
+      const startIndex = (pageNumber - 1) * limitNumber;
+      const findOrders = await collection.find({}).skip(startIndex).limit(limitNumber).toArray();
+
       // Utiliza la información de paginación para aplicar la paginación en los resultados
-
+      const linkHeaders = {
+        first: `</users?page=1&limit=${limitNumber}>; rel="first"`,
+        prev: `</users?page=${pageNumber - 1}&limit=${limitNumber}>; rel="prev"`,
+        next: `</users?page=${pageNumber + 1}&limit=${limitNumber}>; rel="next"`,
+        last: `</users?page=${totalOrders}&limit=${limitNumber}>; rel="last"`,
+      };
       // Ejemplo de respuesta con datos de prueba
-      const orders = [
-        {
-          _id: 'order1',
-          userId: 'user1',
-          client: 'client1',
-          products: [
-            { qty: 2, product: { name: 'Product 1' } },
-            { qty: 3, product: { name: 'Product 2' } },
-          ],
-          status: 'pending',
-          dateEntry: new Date(),
-        },
-        {
-          _id: 'order2',
-          userId: 'user1',
-          client: 'client2',
-          products: [
-            { qty: 1, product: { name: 'Product 3' } },
-            { qty: 2, product: { name: 'Product 4' } },
-          ],
-          status: 'delivered',
-          dateEntry: new Date(),
-          dateProcessed: new Date(),
-        },
-      ];
-
-      resp.status(200).json(orders);
-
+      // Agregar los encabezados de enlace a la respuesta
+      resp.set('link', Object.values(linkHeaders).join(', '));
+      resp.send(findOrders);
     });
 
   /**
