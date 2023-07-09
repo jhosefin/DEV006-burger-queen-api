@@ -255,9 +255,9 @@ module.exports = (app, next) => {
     } else {
       // Verificar si el token pertenece a una usuaria administradora
       const isAdmin = req.isAdmin === true;
-
+      const isUser = req.userId === uid || req.thisEmail === uid;
       // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
-      const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+      const isAuthorized = isUser || isAdmin;
 
       if (!isAuthorized) {
         await client.close();
