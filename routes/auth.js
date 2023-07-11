@@ -34,23 +34,20 @@ module.exports = (app, nextMain) => {
     // coinciden con un user en la base de datos
     // Si coinciden, manda un access token creado con jwt
 
-    // Fetch user data from the database based on the email
     const user = await usersCollection.findOne({ email });
 
     if (!user) {
-      return next(404); // User not found
+      return next(404);
     }
 
-    // Compare the provided password with the hashed password stored in the database
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      return next(400); // Invalid password
+      return next(400);
     }
 
-    // Generate a JWT token
+    // Genera un JWT token
     const accessToken = jwt.sign({ userId: user._id, rol: user.role, email: user.email }, secret);
-    // Include the token in the response
     resp.status(200).json({ accessToken });
   });
 

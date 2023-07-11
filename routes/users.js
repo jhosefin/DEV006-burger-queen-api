@@ -188,6 +188,17 @@ module.exports = (app, next) => {
     /* console.log('Connected successfully to server'); */
     const db = client.db();
     const usersCollection = db.collection('users');
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    if (!isAdmin) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para postear un usuario',
+      });
+    }
+
     // Verificar si ya existe una usuaria con el mismo email
     const user = await usersCollection.findOne({ email });
 
@@ -255,9 +266,9 @@ module.exports = (app, next) => {
     } else {
       // Verificar si el token pertenece a una usuaria administradora
       const isAdmin = req.isAdmin === true;
-
+      const isUser = req.userId === uid || req.thisEmail === uid;
       // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
-      const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+      const isAuthorized = isUser || isAdmin;
 
       if (!isAuthorized) {
         await client.close();
@@ -302,20 +313,18 @@ module.exports = (app, next) => {
           email: user.value.email,
           role: user.value.role,
         });
-      } else {
-        // Si el usuario no existe y el usuario es administrador, devolver un error 404
-        if (isAdmin) {
-          await client.close();
-          return resp.status(404).json({
-            error: 'Usuario no encontrado',
-          });
-        }
+      }
+      // Si el usuario no existe y el usuario es administrador, devolver un error 404
+      if (isAdmin) {
         await client.close();
         return resp.status(404).json({
           error: 'Usuario no encontrado',
         });
       }
-
+      await client.close();
+      return resp.status(404).json({
+        error: 'Usuario no encontrado',
+      });
     }
   });
 
