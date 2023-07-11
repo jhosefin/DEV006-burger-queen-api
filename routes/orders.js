@@ -32,35 +32,35 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-    app.get('/orders', requireAuth, async (req, resp, next) => {
-      const client = new MongoClient(config.dbUrl);
-      await client.connect();
-      const db = client.db();
-      const collection = db.collection('orders');
+  app.get('/orders', requireAuth, async (req, resp/* , next */) => {
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection('orders');
 
-      const { page = 1, limit = 10 } = req.query;
-      const pageNumber = parseInt(page);
-      const limitNumber = parseInt(limit);
+    const { page = 1, limit = 10 } = req.query;
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
 
-      // Calcular el número total de usuarios
-      const totalOrders = await collection.countDocuments();
-      // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
-      const totalPages = Math.ceil(totalOrders / limitNumber);
-      const startIndex = (pageNumber - 1) * limitNumber;
-      const findOrders = await collection.find({}).skip(startIndex).limit(limitNumber).toArray();
+    // Calcular el número total de usuarios
+    const totalOrders = await collection.countDocuments();
+    // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
+    const totalPages = Math.ceil(totalOrders / limitNumber);
+    const startIndex = (pageNumber - 1) * limitNumber;
+    const findOrders = await collection.find({}).skip(startIndex).limit(limitNumber).toArray();
 
-      // Utiliza la información de paginación para aplicar la paginación en los resultados
-      const linkHeaders = {
-        first: `</users?page=1&limit=${limitNumber}>; rel="first"`,
-        prev: `</users?page=${pageNumber - 1}&limit=${limitNumber}>; rel="prev"`,
-        next: `</users?page=${pageNumber + 1}&limit=${limitNumber}>; rel="next"`,
-        last: `</users?page=${totalOrders}&limit=${limitNumber}>; rel="last"`,
-      };
+    // Utiliza la información de paginación para aplicar la paginación en los resultados
+    const linkHeaders = {
+      first: `</users?page=1&limit=${limitNumber}>; rel="first"`,
+      prev: `</users?page=${pageNumber - 1}&limit=${limitNumber}>; rel="prev"`,
+      next: `</users?page=${pageNumber + 1}&limit=${limitNumber}>; rel="next"`,
+      last: `</users?page=${totalPages}&limit=${limitNumber}>; rel="last"`,
+    };
       // Ejemplo de respuesta con datos de prueba
       // Agregar los encabezados de enlace a la respuesta
-      resp.set('link', Object.values(linkHeaders).join(', '));
-      resp.send(findOrders);
-    });
+    resp.set('link', Object.values(linkHeaders).join(', '));
+    resp.send(findOrders);
+  });
 
   /**
    * @name GET /orders/:orderId
@@ -83,9 +83,8 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si la orden con `orderId` indicado no existe
    */
-  app.get('/orders/:orderId', requireAuth, async (req, resp, next) => {
+  app.get('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
     const { orderId } = req.params;
-    
 
     const client = new MongoClient(config.dbUrl);
     await client.connect();
@@ -97,7 +96,6 @@ module.exports = (app, nextMain) => {
       const _id = new ObjectId(orderId);
       order = await collection.findOne({ _id });
     }
-    
 
     if (order) {
       await client.close();
@@ -111,7 +109,7 @@ module.exports = (app, nextMain) => {
         })),
         status: order.status,
         dateEntry: order.dateEntry,
-        dateProcessed: order.dateProcessed
+        dateProcessed: order.dateProcessed,
       });
     } else {
       await client.close();
@@ -154,13 +152,13 @@ module.exports = (app, nextMain) => {
     if (!userId || !products || products.length === 0) {
       return resp.status(400).json({ error: 'Se requiere userId y productos para crear una orden' });
     }
-  
+
     const cliente = new MongoClient(config.dbUrl);
     try {
       await cliente.connect();
       const db = cliente.db();
       const collection = db.collection('orders');
-  
+
       // Crear una nueva orden
       const newOrder = {
         userId,
@@ -170,21 +168,21 @@ module.exports = (app, nextMain) => {
         dateEntry: new Date(),
         dateProcessed: new Date(),
       };
-  
+
       const result = await collection.insertOne(newOrder);
-  
+
       // Devolver la respuesta con el orden creado
       resp.status(200).json({
-          _id: result.insertedId,
-          userId: newOrder.userId,
-          client: newOrder.client,
-          products: newOrder.products.map((product) => ({
-            qty: product.qty,
-            product: product.product,
-          })),
-          status: newOrder.status,
-          dateEntry: newOrder.dateEntry,
-          dateProcessed: newOrder.dateProcessed,
+        _id: result.insertedId,
+        userId: newOrder.userId,
+        client: newOrder.client,
+        products: newOrder.products.map((product) => ({
+          qty: product.qty,
+          product: product.product,
+        })),
+        status: newOrder.status,
+        dateEntry: newOrder.dateEntry,
+        dateProcessed: newOrder.dateProcessed,
       });
     } catch (error) {
       next(error);
@@ -221,9 +219,16 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si la orderId con `orderId` indicado no existe
    */
-  app.patch('/orders/:orderId', requireAuth, async (req, resp, next) => {
+  app.patch('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
     const { orderId } = req.params;
-    const { userId, client, products, status, dateEntry, dateProcessed } = req.body;
+    const {
+      userId,
+      client,
+      products,
+      status,
+      dateEntry,
+      dateProcessed,
+    } = req.body;
 
     const cliente = new MongoClient(config.dbUrl);
     await cliente.connect();
@@ -231,7 +236,7 @@ module.exports = (app, nextMain) => {
     const usersCollection = db.collection('orders');
     let order;
 
-    if (Object.keys(req.body).length === 0 || userId === '' || client === '' || dateEntry === "" || products === '' || status === '' || dateProcessed === '') {
+    if (Object.keys(req.body).length === 0 || userId === '' || client === '' || dateEntry === '' || products === '' || status === '' || dateProcessed === '') {
       await cliente.close();
       resp.status(400).json({
         error: 'Los valores a actualizar no pueden estar vacios',
@@ -249,7 +254,7 @@ module.exports = (app, nextMain) => {
 
       // Verificar si ya existe una usuaria con el id o email insertado
       if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
-        if (status !== "delivered" && status !== "pending" && status !== "canceled" && status !== "delivering" && status !== "preparing") {
+        if (status !== 'delivered' && status !== 'pending' && status !== 'canceled' && status !== 'delivering' && status !== 'preparing') {
           await cliente.close();
           return resp.status(400).json({
             error: 'El status no es el correcto',
@@ -257,11 +262,11 @@ module.exports = (app, nextMain) => {
         }
         const _id = new ObjectId(orderId);
         order = await usersCollection.findOneAndUpdate(
-          { _id: _id },
+          { _id },
           { $set: req.body },
           { returnOriginal: false },
         );
-      }else {
+      } else {
         await cliente.close();
         return resp.status(404).json({
           error: 'Producto no encontrado',
@@ -282,13 +287,11 @@ module.exports = (app, nextMain) => {
           dateEntry: order.value.dateEntry,
           dateProcessed: order.value.dateProcessed,
         });
-      } else {
-        await cliente.close();
-        return resp.status(404).json({
-          error: 'Producto no encontrado',
-        });
       }
-
+      await cliente.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
     }
   });
 
@@ -313,17 +316,17 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si el producto con `orderId` indicado no existe
    */
-  app.delete('/orders/:orderId', requireAuth, async (req, resp, next) => {
+  app.delete('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
     const { orderId } = req.params;
 
     const client = new MongoClient(config.dbUrl);
     await client.connect();
     const db = client.db();
     const productsCollection = db.collection('orders');
-  let order;
+    let order;
     // Verificar si el token pertenece a una usuaria administradora
     const isAdmin = req.isAdmin === true;
-  
+
     if (!isAdmin) {
       await client.close();
       return resp.status(403).json({
@@ -331,22 +334,22 @@ module.exports = (app, nextMain) => {
       });
     }
 
-  if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
-    const _id = new ObjectId(orderId);
-    // Verificar si el producto existe
-    order = await productsCollection.findOneAndDelete({ _id });
-  }else {
-    await client.close();
-    return resp.status(404).json({
-      error: 'Producto no encontrado',
-    });
-  }
+    if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+      const _id = new ObjectId(orderId);
+      // Verificar si el producto existe
+      order = await productsCollection.findOneAndDelete({ _id });
+    } else {
+      await client.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
 
     if (order.value) {
       await client.close();
       return resp.status(200).json(order.value);
     }
-  
+
     await client.close();
     return resp.status(404).json({
       error: 'Producto no encontrado',

@@ -1,5 +1,3 @@
-const products = require("../routes/products");
-
 const {
   fetch,
   fetchAsTestUser,
