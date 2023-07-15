@@ -3,6 +3,7 @@ const {
   requireAuth,
 } = require('../middleware/auth');
 const config = require('../config');
+const { getOrders } = require('../controller/orders');
 
 /** @module orders */
 module.exports = (app, nextMain) => {
@@ -32,35 +33,7 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-  app.get('/orders', requireAuth, async (req, resp/* , next */) => {
-    const client = new MongoClient(config.dbUrl);
-    await client.connect();
-    const db = client.db();
-    const collection = db.collection('orders');
-
-    const { page = 1, limit = 10 } = req.query;
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-
-    // Calcular el número total de usuarios
-    const totalOrders = await collection.countDocuments();
-    // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
-    const totalPages = Math.ceil(totalOrders / limitNumber);
-    const startIndex = (pageNumber - 1) * limitNumber;
-    const findOrders = await collection.find({}).skip(startIndex).limit(limitNumber).toArray();
-
-    // Utiliza la información de paginación para aplicar la paginación en los resultados
-    const linkHeaders = {
-      first: `</users?page=1&limit=${limitNumber}>; rel="first"`,
-      prev: `</users?page=${pageNumber - 1}&limit=${limitNumber}>; rel="prev"`,
-      next: `</users?page=${pageNumber + 1}&limit=${limitNumber}>; rel="next"`,
-      last: `</users?page=${totalPages}&limit=${limitNumber}>; rel="last"`,
-    };
-      // Ejemplo de respuesta con datos de prueba
-      // Agregar los encabezados de enlace a la respuesta
-    resp.set('link', Object.values(linkHeaders).join(', '));
-    resp.send(findOrders);
-  });
+  app.get('/orders', requireAuth, getOrders);
 
   /**
    * @name GET /orders/:orderId
