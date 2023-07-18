@@ -5,42 +5,35 @@ const { dbUrl } = config;
 const client = new MongoClient(dbUrl);
 
 module.exports = {
-  getUsers: async (req, resp, next) => {
+  getOrders: async (req, resp, next) => {
     try {
       await client.connect();
       const db = client.db();
-      const collection = db.collection('users');
+      const collection = db.collection('orders');
 
-      // Obtener los parámetros de consulta de página y límite
       const { page = 1, limit = 10 } = req.query;
       const pageNumber = parseInt(page, 10);
       const limitNumber = parseInt(limit, 10);
 
       // Calcular el número total de usuarios
-      const totalUsers = await collection.countDocuments();
-
-      // Calcular el número total de páginas
-      const totalPages = Math.ceil(totalUsers / limitNumber);
-
-      // Calcular el índice de inicio y fin para la consulta
+      const totalOrders = await collection.countDocuments();
+      // Aquí puedes implementar la lógica para obtener las órdenes desde la base de datos
+      const totalPages = Math.ceil(totalOrders / limitNumber);
       const startIndex = (pageNumber - 1) * limitNumber;
+      const findOrders = await collection.find({}).sort({ _id: -1 }).skip(startIndex).limit(limitNumber)
+        .toArray();
 
-      // Obtener la lista de usuarios paginada
-      const users = await collection.find({}).sort({ id: -1 }).skip(startIndex).limit(limitNumber).toArray();
-
-      // Crear los encabezados de enlace (link headers)
+      // Utiliza la información de paginación para aplicar la paginación en los resultados
       const linkHeaders = {
         first: `</users?page=1&limit=${limitNumber}>; rel="first"`,
         prev: `</users?page=${pageNumber - 1}&limit=${limitNumber}>; rel="prev"`,
         next: `</users?page=${pageNumber + 1}&limit=${limitNumber}>; rel="next"`,
         last: `</users?page=${totalPages}&limit=${limitNumber}>; rel="last"`,
       };
-
+      // Ejemplo de respuesta con datos de prueba
       // Agregar los encabezados de enlace a la respuesta
       resp.set('link', Object.values(linkHeaders).join(', '));
-
-      // Enviar la respuesta con la lista de usuarios
-      resp.send(users);
+      resp.send(findOrders);
     } catch (err) {
       /* console.log("mostrar error al traer usuarios de la colección", err); */
       next(err);

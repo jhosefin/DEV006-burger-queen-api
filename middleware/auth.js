@@ -18,8 +18,15 @@ module.exports = (secret) => (req, resp, next) => {
       return next(403);
     }
 
-    // TODO: Verificar identidad del usuario usando `decodeToken.uid`
     req.userId = decodedToken.userId;
+    req.isAdmin = decodedToken.rol;
+    req.thisEmail = decodedToken.email;
+
+    if (req.isAdmin === 'admin') {
+      req.isAdmin = true;
+    } else {
+      req.isAdmin = false;
+    }
     next();
   });
 };

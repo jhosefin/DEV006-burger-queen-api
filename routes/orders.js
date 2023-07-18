@@ -1,6 +1,9 @@
+const { MongoClient, ObjectId } = require('mongodb');
 const {
   requireAuth,
 } = require('../middleware/auth');
+const config = require('../config');
+const { getOrders } = require('../controller/orders');
 
 /** @module orders */
 module.exports = (app, nextMain) => {
@@ -30,8 +33,7 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-  app.get('/orders', requireAuth, (req, resp, next) => {
-  });
+  app.get('/orders', requireAuth, getOrders);
 
   /**
    * @name GET /orders/:orderId
@@ -54,7 +56,40 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si la orden con `orderId` indicado no existe
    */
-  app.get('/orders/:orderId', requireAuth, (req, resp, next) => {
+  app.get('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
+    const { orderId } = req.params;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection('orders');
+    let order;
+
+    if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+      const _id = new ObjectId(orderId);
+      order = await collection.findOne({ _id });
+    }
+
+    if (order) {
+      await client.close();
+      resp.status(200).json({
+        id: order.insertedId,
+        userId: order.userId,
+        client: order.client,
+        products: order.products.map((product) => ({
+          qty: product.qty,
+          product: product.product,
+        })),
+        status: order.status,
+        dateEntry: order.dateEntry,
+        dateProcessed: order.dateProcessed,
+      });
+    } else {
+      await client.close();
+      resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
   });
 
   /**
@@ -83,11 +118,54 @@ module.exports = (app, nextMain) => {
    * @code {400} no se indica `userId` o se intenta crear una orden sin productos
    * @code {401} si no hay cabecera de autenticación
    */
-  app.post('/orders', requireAuth, (req, resp, next) => {
+  app.post('/orders', requireAuth, async (req, resp, next) => {
+    const { userId, client, products } = req.body;
+
+    // Validar los parámetros de solicitud
+    if (!userId || !products || products.length === 0) {
+      return resp.status(400).json({ error: 'Se requiere userId y productos para crear una orden' });
+    }
+
+    const cliente = new MongoClient(config.dbUrl);
+    try {
+      await cliente.connect();
+      const db = cliente.db();
+      const collection = db.collection('orders');
+
+      // Crear una nueva orden
+      const newOrder = {
+        userId,
+        client,
+        products,
+        status: 'pending',
+        dateEntry: new Date(),
+        dateProcessed: new Date(),
+      };
+
+      const result = await collection.insertOne(newOrder);
+
+      // Devolver la respuesta con el orden creado
+      resp.status(200).json({
+        _id: result.insertedId,
+        userId: newOrder.userId,
+        client: newOrder.client,
+        products: newOrder.products.map((product) => ({
+          qty: product.qty,
+          product: product.product,
+        })),
+        status: newOrder.status,
+        dateEntry: newOrder.dateEntry,
+        dateProcessed: newOrder.dateProcessed,
+      });
+    } catch (error) {
+      next(error);
+    } finally {
+      cliente.close();
+    }
   });
 
   /**
-   * @name PUT /orders
+   * @name PATCH /orders
    * @description Modifica una orden
    * @path {PUT} /products
    * @params {String} :orderId `id` de la orden
@@ -114,7 +192,80 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si la orderId con `orderId` indicado no existe
    */
-  app.put('/orders/:orderId', requireAuth, (req, resp, next) => {
+  app.patch('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
+    const { orderId } = req.params;
+    const {
+      userId,
+      client,
+      products,
+      status,
+      dateEntry,
+      dateProcessed,
+    } = req.body;
+
+    const cliente = new MongoClient(config.dbUrl);
+    await cliente.connect();
+    const db = cliente.db();
+    const usersCollection = db.collection('orders');
+    let order;
+
+    if (Object.keys(req.body).length === 0 || userId === '' || client === '' || dateEntry === '' || products === '' || status === '' || dateProcessed === '') {
+      await cliente.close();
+      resp.status(400).json({
+        error: 'Los valores a actualizar no pueden estar vacios',
+      });
+    } else {
+      // Verificar si el token pertenece a una usuaria administradora
+      const isAdmin = req.isAdmin === true;
+
+      if (!isAdmin) {
+        await cliente.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para modificar este usuario',
+        });
+      }
+
+      // Verificar si ya existe una usuaria con el id o email insertado
+      if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+        if (status !== 'delivered' && status !== 'pending' && status !== 'canceled' && status !== 'delivering' && status !== 'preparing') {
+          await cliente.close();
+          return resp.status(400).json({
+            error: 'El status no es el correcto',
+          });
+        }
+        const _id = new ObjectId(orderId);
+        order = await usersCollection.findOneAndUpdate(
+          { _id },
+          { $set: req.body },
+          { returnOriginal: false },
+        );
+      } else {
+        await cliente.close();
+        return resp.status(404).json({
+          error: 'Producto no encontrado',
+        });
+      }
+
+      if (order.value) {
+        await cliente.close();
+        return resp.status(200).json({
+          _id: order.value._id,
+          userId: order.value.userId,
+          client: order.value.client,
+          products: order.value.products.map((product) => ({
+            qty: product.qty,
+            product: product.product,
+          })),
+          status: order.value.status,
+          dateEntry: order.value.dateEntry,
+          dateProcessed: order.value.dateProcessed,
+        });
+      }
+      await cliente.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
   });
 
   /**
@@ -138,7 +289,44 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si el producto con `orderId` indicado no existe
    */
-  app.delete('/orders/:orderId', requireAuth, (req, resp, next) => {
+  app.delete('/orders/:orderId', requireAuth, async (req, resp/* , next */) => {
+    const { orderId } = req.params;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const productsCollection = db.collection('orders');
+    let order;
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    if (!isAdmin) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para eliminar este producto',
+      });
+    }
+
+    if (typeof orderId === 'string' && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+      const _id = new ObjectId(orderId);
+      // Verificar si el producto existe
+      order = await productsCollection.findOneAndDelete({ _id });
+    } else {
+      await client.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
+
+    if (order.value) {
+      await client.close();
+      return resp.status(200).json(order.value);
+    }
+
+    await client.close();
+    return resp.status(404).json({
+      error: 'Producto no encontrado',
+    });
   });
 
   nextMain();

@@ -1,6 +1,6 @@
-const { MongoClient } = require('mongodb');
-const  config  = require('../config');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
+const config = require('../config');
 
 const {
   requireAuth,
@@ -20,7 +20,7 @@ const initAdminUser = async (app, next) => {
   const adminUser = {
     email: adminEmail,
     password: bcrypt.hashSync(adminPassword, 10),
-    roles: { admin: true },
+    role: 'admin',
   };
 
   try {
@@ -29,12 +29,11 @@ const initAdminUser = async (app, next) => {
     const db = client.db();
     const usersCollection = db.collection('users');
     const user = await usersCollection.findOne({ email: adminUser.email });
-    console.log(!user)
     if (!user) {
       await usersCollection.insertOne(adminUser);
-      console.log('Admin user created successfully');
+      /* console.log('Admin user created successfully'); */
     } else {
-      console.log('Admin user already exists');
+      /* console.log('Admin user already exists'); */
     }
 
     client.close();
@@ -43,7 +42,7 @@ const initAdminUser = async (app, next) => {
     console.error(err);
     next(err);
   }
-}
+};
 
 /*
  * Diagrama de flujo de una aplicación y petición en node - express :
@@ -53,7 +52,7 @@ const initAdminUser = async (app, next) => {
  * response <- middleware4 <- middleware3   <---
  *
  * la gracia es que la petición va pasando por cada una de las funciones
- * intermedias o "middlewares" hasta llegar a la función de la ruta, luego esa
+ * intermedias o 'middlewares' hasta llegar a la función de la ruta, luego esa
  * función genera la respuesta y esta pasa nuevamente por otras funciones
  * intermedias hasta responder finalmente a la usuaria.
  *
@@ -94,7 +93,7 @@ module.exports = (app, next) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {403} si no es ni admin
    */
-  app.get('/users', /* requireAdmin, */ getUsers);
+  app.get('/users', requireAdmin, getUsers);
 
   /**
    * @name GET /users/:uid
@@ -112,7 +111,49 @@ module.exports = (app, next) => {
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.get('/users/:uid', requireAuth, (req, resp) => {
+  app.get('/users/:uid', requireAuth, async (req, resp) => {
+    const { uid } = req.params;
+    const email = uid;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+    let users;
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+    const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+
+    if (!isAuthorized) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para hacer esta petición',
+      });
+    }
+    // Verificar si ya existe una usuaria con el id o email insertado
+    if (uid.includes('@')) {
+      users = await usersCollection.findOne({ email });
+    } else if (uid === Number) {
+      const _id = new ObjectId(uid);
+      users = await usersCollection.findOne({ _id });
+    }
+
+    if (users) {
+      await client.close();
+      resp.status(200).json({
+        id: users._id,
+        email: users.email,
+        role: users.role,
+      });
+    } else {
+      await client.close();
+      resp.status(404).json({
+        error: 'Usuario no encontrado',
+      });
+    }
   });
 
   /**
@@ -137,94 +178,56 @@ module.exports = (app, next) => {
   app.post('/users', requireAdmin, async (req, resp, next) => {
     // TODO: implementar la ruta para agregar
     // nuevos usuarios
-/*     const { email, password, roles } = req.body;
-
-  if (!email || !password) {
-    return next(400);
-  }
-  console.log("hola mundo 2");
-  console.log(config);
-  const client = new MongoClient(config.dbUrl);
-  await client.connect();
-  console.log('Connected successfully to server');
-  const db = client.db();
-  console.log('no');
-  const usersCollection = db.collection('users');
-  console.log('noo');
-  // the following code examples can be pasted here...
-  const newUser = {
-    email,
-    password: bcrypt.hashSync(password, 10),
-    roles: roles || {},
-  };
-
-  const insertedUser = await usersCollection.insertOne(newUser);
-  console.log(insertedUser);
-  await client.close();
-  console.log('nooo');
-  resp.status(200).json({
-    _id: insertedUser.insertedId,
-    email: insertedUser.email,
-    roles: insertedUser.roles,
-  }); */
-  /* return next(200); */
-/*   console.log(config.dbUrl);
-  client.connect(async (err) => {
-    try {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return next(500);
+    const { email, password, role } = req.body;
+    if (!email || !password || !role) {
+      return next(400);
     }
-    console.log("hola mundo 4");
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    /* console.log('Connected successfully to server'); */
     const db = client.db();
-    console.log("hola mundo 5");
     const usersCollection = db.collection('users');
-    console.log("hola mundo 3");
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    if (!isAdmin) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para postear un usuario',
+      });
+    }
+
     // Verificar si ya existe una usuaria con el mismo email
-    usersCollection.findOne({ email }, (err, existingUser) => {
-      if (err) {
-        console.error('Error al buscar la usuaria:', err);
-        client.close();
-        return next(500);
-      }
+    const user = await usersCollection.findOne({ email });
 
-      if (existingUser) {
-        client.close();
-        return next(403);
-      }
-
+    if (!user) {
       const newUser = {
         email,
         password: bcrypt.hashSync(password, 10),
-        roles: roles || {},
+        role,
       };
 
-      usersCollection.insertOne(newUser, (err, result) => {
-        if (err) {
-          console.error('Error al agregar la usuaria:', err);
-          client.close();
-          return next(500);
-        }
+      const insertedUser = await usersCollection.insertOne(newUser);
 
-        const insertedUser = result.ops[0];
-        client.close();
-        resp.status(201).json({
-          _id: insertedUser._id,
-          email: insertedUser.email,
-          roles: insertedUser.roles,
-        });
+      await client.close();
+      resp.status(200).json({
+        id: insertedUser.insertedId,
+        email,
+        role,
       });
-    });
-  }
-  catch (err) {
-    console.log(err);
-  }
-  });
-  console.log("no connect") */
+    }
+    if (user) {
+      await client.close();
+      resp.status(403).json({
+        error: 'Usuario existe ',
+      });
+    }
   });
 
   /**
-   * @name PUT /users
+   * @name PATCH /users
    * @description Modifica una usuaria
    * @params {String} :uid `id` o `email` de la usuaria a modificar
    * @path {PUT} /users
@@ -245,7 +248,84 @@ module.exports = (app, next) => {
    * @code {403} una usuaria no admin intenta de modificar sus `roles`
    * @code {404} si la usuaria solicitada no existe
    */
-  app.put('/users/:uid', requireAuth, (req, resp, next) => {
+  app.patch('/users/:uid', requireAuth, async (req, resp/* , next */) => {
+    const { uid } = req.params;
+    const { email, password, role } = req.body;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+    let user;
+
+    if (email === '' || password === '' || Object.keys(req.body).length === 0) {
+      await client.close();
+      resp.status(400).json({
+        error: 'Los valores a actualizar no pueden estar vacios',
+      });
+    } else {
+      // Verificar si el token pertenece a una usuaria administradora
+      const isAdmin = req.isAdmin === true;
+      const isUser = req.userId === uid || req.thisEmail === uid;
+      // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+      const isAuthorized = isUser || isAdmin;
+
+      if (!isAuthorized) {
+        await client.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para modificar este usuario',
+        });
+      }
+
+      if (!isAdmin && role && role !== req.isAdmin) {
+        await client.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para cambiar el role del usuario',
+        });
+      }
+
+      // Verificar si la contraseña se está actualizando
+      if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10); // Encriptar la nueva contraseña
+        req.body.password = hashedPassword; // Actualizar la contraseña en req.body
+      }
+
+      // Verificar si ya existe una usuaria con el id o email insertado
+      if (uid.includes('@')) {
+        user = await usersCollection.findOneAndUpdate(
+          { email: uid },
+          { $set: req.body },
+          { returnOriginal: false },
+        );
+      } else {
+        const userId = new ObjectId(uid);
+        user = await usersCollection.findOneAndUpdate(
+          { _id: userId },
+          { $set: req.body },
+          { returnOriginal: false },
+        );
+      }
+
+      if (user.value) {
+        await client.close();
+        return resp.status(200).json({
+          id: user.value._id,
+          email: user.value.email,
+          role: user.value.role,
+        });
+      }
+      // Si el usuario no existe y el usuario es administrador, devolver un error 404
+      if (isAdmin) {
+        await client.close();
+        return resp.status(404).json({
+          error: 'Usuario no encontrado',
+        });
+      }
+      await client.close();
+      return resp.status(404).json({
+        error: 'Usuario no encontrado',
+      });
+    }
   });
 
   /**
@@ -264,8 +344,47 @@ module.exports = (app, next) => {
    * @code {403} si no es ni admin o la misma usuaria
    * @code {404} si la usuaria solicitada no existe
    */
-  app.delete('/users/:uid', requireAuth, (req, resp, next) => {
-  });
+  app.delete('/users/:uid', requireAuth, async (req, resp/* , next */) => {
+    const { uid } = req.params;
 
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('users');
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    // Verificar si el token pertenece a la misma usuaria o si es una usuaria administradora
+    const isAuthorized = req.userId === uid || isAdmin || req.thisEmail === uid;
+
+    if (!isAuthorized) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para eliminar este usuario',
+      });
+    }
+
+    // Verificar si ya existe una usuaria con el id o email insertado
+    let user;
+    if (uid.includes('@')) {
+      user = await usersCollection.findOneAndDelete({ email: uid });
+    } else {
+      const userId = new ObjectId(uid);
+      user = await usersCollection.findOneAndDelete({ _id: userId });
+    }
+    if (user.value) {
+      await client.close();
+      return resp.status(200).json({
+        id: user.value._id,
+        email: user.value.email,
+        role: user.value.role,
+      });
+    }
+    await client.close();
+    return resp.status(404).json({
+      error: 'Usuario no encontrado',
+    });
+  });
   initAdminUser(app, next);
 };

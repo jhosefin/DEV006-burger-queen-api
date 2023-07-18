@@ -30,7 +30,7 @@ describe('POST /products', () => {
         return resp.json();
       })
       .then((json) => {
-        expect(typeof json._id).toBe('string');
+        expect(typeof json.id).toBe('string');
         expect(typeof json.name).toBe('string');
         expect(typeof json.price).toBe('number');
       })
@@ -63,34 +63,37 @@ describe('GET /products/:productid', () => {
 
   it('should get product with Auth', () => (
     fetchAsTestUser('/products')
-      .then((resp) => {
-        expect(resp.status).toBe(200);
-        return resp.json();
-      })
-      .then((json) => {
-        expect(Array.isArray(json)).toBe(true);
-        expect(json.length > 0).toBe(true);
-        json.forEach((product) => {
-          expect(typeof product._id).toBe('string');
-          expect(typeof product.name).toBe('string');
-          expect(typeof product.price).toBe('number');
-        });
-        return fetchAsTestUser(`/products/${json[0]._id}`)
-          .then((resp) => ({ resp, product: json[0] }));
-      })
-      .then(({ resp, product }) => {
-        expect(resp.status).toBe(200);
-        return resp.json().then((json) => ({ json, product }));
-      })
-      .then(({ json, product }) => {
-        expect(json).toEqual(product);
-      })
+    .then((resp) => {
+      expect(resp.status).toBe(200);
+      return resp.json();
+    })
+    .then((json) => {
+      expect(Array.isArray(json)).toBe(true);
+      expect(json.length > 0).toBe(true);
+      const productId = json[0]._id;
+      return fetchAsTestUser(`/products/${productId}`)
+        .then((resp) => ({ resp, productId }));
+    })
+    .then(({ resp, productId }) => {
+      expect(resp.status).toBe(200);
+      return resp.json().then((json) => ({ json, productId }));
+    })
+    .then(({ json, productId }) => {
+      expect(json).toHaveProperty('id', productId);
+      expect(typeof json.id).toBe('string');
+      expect(typeof json.name).toBe('string');
+      expect(typeof json.price).toBe('number');
+      expect(json).toHaveProperty('dateEntry');
+    })
+    .catch((error) => {
+      throw error;
+    })
   ));
 });
 
-describe('PUT /products/:productid', () => {
+describe('PATCH /products/:productid', () => {
   it('should fail with 401 when no auth', () => (
-    fetch('/products/xxx', { method: 'PUT' })
+    fetch('/products/xxx', { method: 'PATCH' })
       .then((resp) => expect(resp.status).toBe(401))
   ));
 
@@ -104,7 +107,7 @@ describe('PUT /products/:productid', () => {
         return resp.json();
       })
       .then((json) => fetchAsTestUser(`/products/${json._id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: { price: 20 },
       }))
       .then((resp) => expect(resp.status).toBe(403))
@@ -112,7 +115,7 @@ describe('PUT /products/:productid', () => {
 
   it('should fail with 404 when admin and not found', () => (
     fetchAsAdmin('/products/12345678901234567890', {
-      method: 'PUT',
+      method: 'PATCH',
       body: { price: 1 },
     })
       .then((resp) => expect(resp.status).toBe(404))
@@ -128,7 +131,7 @@ describe('PUT /products/:productid', () => {
         return resp.json();
       })
       .then((json) => fetchAsAdmin(`/products/${json._id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: { price: 'abc' },
       }))
       .then((resp) => expect(resp.status).toBe(400))
@@ -143,10 +146,17 @@ describe('PUT /products/:productid', () => {
         expect(resp.status).toBe(200);
         return resp.json();
       })
-      .then((json) => fetchAsAdmin(`/products/${json._id}`, {
-        method: 'PUT',
+      .then((json) => fetchAsAdmin(`/products/${json.id}`, {
+        method: 'PATCH',
         body: { price: 20 },
       }))
+      .then((resp) => {
+        expect(resp.status).toBe(200);
+        return resp.json();
+      })
+      .then((json) => {
+        return fetchAsAdmin(`/products/${json.id}`);
+      })
       .then((resp) => {
         expect(resp.status).toBe(200);
         return resp.json();
@@ -189,12 +199,12 @@ describe('DELETE /products/:productid', () => {
         return resp.json();
       })
       .then(
-        ({ _id }) => fetchAsAdmin(`/products/${_id}`, { method: 'DELETE' })
-          .then((resp) => ({ resp, _id })),
+        ({ id }) => fetchAsAdmin(`/products/${id}`, { method: 'DELETE' })
+          .then((resp) => ({ resp, id })),
       )
-      .then(({ resp, _id }) => {
+      .then(({ resp, id }) => {
         expect(resp.status).toBe(200);
-        return fetchAsAdmin(`/products/${_id}`);
+        return fetchAsAdmin(`/products/${id}`);
       })
       .then((resp) => expect(resp.status).toBe(404))
   ));

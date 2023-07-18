@@ -1,7 +1,10 @@
+const { MongoClient, ObjectId } = require('mongodb');
 const {
   requireAuth,
   requireAdmin,
 } = require('../middleware/auth');
+const config = require('../config');
+const { getProducts } = require('../controller/products');
 
 /** @module products */
 module.exports = (app, nextMain) => {
@@ -27,8 +30,7 @@ module.exports = (app, nextMain) => {
    * @code {200} si la autenticación es correcta
    * @code {401} si no hay cabecera de autenticación
    */
-  app.get('/products', requireAuth, (req, resp, next) => {
-  });
+  app.get('/products', requireAuth, getProducts);
 
   /**
    * @name GET /products/:productId
@@ -47,7 +49,36 @@ module.exports = (app, nextMain) => {
    * @code {401} si no hay cabecera de autenticación
    * @code {404} si el producto con `productId` indicado no existe
    */
-  app.get('/products/:productId', requireAuth, (req, resp, next) => {
+  app.get('/products/:productId', requireAuth, async (req, resp/* , next */) => {
+    const { productId } = req.params;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection('products');
+    let product;
+
+    if (typeof productId === 'string' && /^[0-9a-fA-F]{24}$/.test(productId)) {
+      const _id = new ObjectId(productId);
+      product = await collection.findOne({ _id });
+    }
+
+    if (product) {
+      await client.close();
+      resp.status(200).json({
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        type: product.type,
+        dateEntry: product.dateEntry,
+      });
+    } else {
+      await client.close();
+      resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
   });
 
   /**
@@ -72,11 +103,62 @@ module.exports = (app, nextMain) => {
    * @code {403} si no es admin
    * @code {404} si el producto con `productId` indicado no existe
    */
-  app.post('/products', requireAdmin, (req, resp, next) => {
+  app.post('/products', requireAdmin, async (req, resp, next) => {
+    const {
+      name,
+      price,
+      image,
+      type,
+    } = req.body;
+
+    if (!name || !price) {
+      return resp.status(400).json({
+        error: 'Debes proporcionar un nombre y un precio para el producto.',
+      });
+    }
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection('products');
+
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    if (!isAdmin) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para hacer esta petición',
+      });
+    }
+    try {
+      const product = {
+        name,
+        price,
+        image,
+        type,
+        dateEntry: new Date(),
+      };
+
+      const result = await collection.insertOne(product);
+
+      resp.status(200).json({
+        id: result.insertedId,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        type: product.type,
+        dateEntry: product.dateEntry,
+      });
+    } catch (error) {
+      next(error);
+    } finally {
+      client.close();
+    }
   });
 
   /**
-   * @name PUT /products
+   * @name PATCH /products
    * @description Modifica un producto
    * @path {PUT} /products
    * @params {String} :productId `id` del producto
@@ -98,7 +180,67 @@ module.exports = (app, nextMain) => {
    * @code {403} si no es admin
    * @code {404} si el producto con `productId` indicado no existe
    */
-  app.put('/products/:productId', requireAdmin, (req, resp, next) => {
+  app.patch('/products/:productId', requireAdmin, async (req, resp/* , next */) => {
+    const { productId } = req.params;
+    const {
+      name,
+      price,
+      image,
+      type,
+    } = req.body;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const usersCollection = db.collection('products');
+    let product;
+
+    if (Object.keys(req.body).length === 0 || name === '' || price === '' || typeof price !== 'number' || image === '' || type === '') {
+      await client.close();
+      resp.status(400).json({
+        error: 'Los valores a actualizar no pueden estar vacios',
+      });
+    } else {
+      // Verificar si el token pertenece a una usuaria administradora
+      const isAdmin = req.isAdmin === true;
+
+      if (!isAdmin) {
+        await client.close();
+        return resp.status(403).json({
+          error: 'No tienes autorización para modificar este usuario',
+        });
+      }
+
+      // Verificar si ya existe una usuaria con el id o email insertado
+      if (typeof productId === 'string' && /^[0-9a-fA-F]{24}$/.test(productId)) {
+        const id = new ObjectId(productId);
+        product = await usersCollection.findOneAndUpdate(
+          { _id: id },
+          { $set: req.body },
+          { returnOriginal: false },
+        );
+      } else {
+        await client.close();
+        return resp.status(404).json({
+          error: 'Producto no encontrado',
+        });
+      }
+
+      if (product.value) {
+        await client.close();
+        return resp.status(200).json({
+          id: product.value._id,
+          name: product.value.name,
+          price: product.value.price,
+          image: product.value.image,
+          type: product.value.type,
+        });
+      }
+      await client.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
   });
 
   /**
@@ -119,7 +261,44 @@ module.exports = (app, nextMain) => {
    * @code {403} si no es ni admin
    * @code {404} si el producto con `productId` indicado no existe
    */
-  app.delete('/products/:productId', requireAdmin, (req, resp, next) => {
+  app.delete('/products/:productId', requireAdmin, async (req, resp/* , next */) => {
+    const { productId } = req.params;
+
+    const client = new MongoClient(config.dbUrl);
+    await client.connect();
+    const db = client.db();
+    const productsCollection = db.collection('products');
+    let product;
+    // Verificar si el token pertenece a una usuaria administradora
+    const isAdmin = req.isAdmin === true;
+
+    if (!isAdmin) {
+      await client.close();
+      return resp.status(403).json({
+        error: 'No tienes autorización para eliminar este producto',
+      });
+    }
+
+    if (typeof productId === 'string' && /^[0-9a-fA-F]{24}$/.test(productId)) {
+      const _id = new ObjectId(productId);
+      // Verificar si el producto existe
+      product = await productsCollection.findOneAndDelete({ _id });
+    } else {
+      await client.close();
+      return resp.status(404).json({
+        error: 'Producto no encontrado',
+      });
+    }
+
+    if (product.value) {
+      await client.close();
+      return resp.status(200).json(product.value);
+    }
+
+    await client.close();
+    return resp.status(404).json({
+      error: 'Producto no encontrado',
+    });
   });
 
   nextMain();

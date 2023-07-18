@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 const jwt = require('jsonwebtoken');
-const config = require('../config');
 const bcrypt = require('bcrypt');
+const config = require('../config');
 
 const { secret } = config;
 
@@ -19,7 +19,7 @@ module.exports = (app, nextMain) => {
    * @code {400} si no se proveen `email` o `password` o ninguno de los dos
    * @auth No requiere autenticación
    */
-  app.post('/auth', async (req, resp, next) => {
+  app.post('/login', async (req, resp, next) => {
     const { email, password } = req.body;
     const { dbUrl } = app.get('config');
     if (!email || !password) {
@@ -34,25 +34,21 @@ module.exports = (app, nextMain) => {
     // coinciden con un user en la base de datos
     // Si coinciden, manda un access token creado con jwt
 
-    // Fetch user data from the database based on the email
-  const user = await usersCollection.findOne({ email });
+    const user = await usersCollection.findOne({ email });
 
-  if (!user) {
-    return next(400); // User not found
-  }
+    if (!user) {
+      return next(404);
+    }
 
-  // Compare the provided password with the hashed password stored in the database
-  const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, user.password);
 
-  if (!passwordMatch) {
-    return next(400); // Invalid password
-  }
+    if (!passwordMatch) {
+      return next(400);
+    }
 
-  // Generate a JWT token
-  const token = jwt.sign({ userId: user._id }, secret);
-console.log(token)
-  // Include the token in the response
-  resp.json({ token });
+    // Genera un JWT token
+    const accessToken = jwt.sign({ userId: user._id, rol: user.role, email: user.email }, secret);
+    resp.status(200).json({ accessToken });
   });
 
   return nextMain();
