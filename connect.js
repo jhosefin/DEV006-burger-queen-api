@@ -10,8 +10,7 @@ async function connect() {
   try {
     await client.connect();
     const db = client.db();
-    console.log('Conexión exitosa a la base de datos',db);
-    return db
+    return db;
     // Puedes realizar operaciones en la base de datos utilizando el objeto `db`
     // Por ejemplo: const collection = db.collection('myCollection');
   } catch (error) {
