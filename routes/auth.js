@@ -49,6 +49,7 @@ module.exports = (app, nextMain) => {
     // Genera un JWT token
     const accessToken = jwt.sign({ userId: user._id, rol: user.role, email: user.email }, secret);
     resp.status(200).json({ accessToken });
+    next();
   });
 
   return nextMain();
