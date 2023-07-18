@@ -18,4 +18,4 @@ async function connect() {
     console.error('Error al conectar a la base de datos:', error);
   }
 }
-module.exports = { connect, close: () => client.close() };
+module.exports = { connect };
