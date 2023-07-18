@@ -72,7 +72,7 @@ describe('POST /orders', () => {
       })
       .then(([product, user]) => fetchAsAdmin('/orders', {
         method: 'POST',
-        body: { products: [{ product: {productId: product._id, name: product.name, price: product.price}, qty: 5 }], userId: user.id },
+        body: { products: [{ product: { productId: product._id, name: product.name, price: product.price }, qty: 5 }], userId: user.id },
       }))
       .then((resp) => {
         expect(resp.status).toBe(200);

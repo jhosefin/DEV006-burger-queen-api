@@ -63,31 +63,31 @@ describe('GET /products/:productid', () => {
 
   it('should get product with Auth', () => (
     fetchAsTestUser('/products')
-    .then((resp) => {
-      expect(resp.status).toBe(200);
-      return resp.json();
-    })
-    .then((json) => {
-      expect(Array.isArray(json)).toBe(true);
-      expect(json.length > 0).toBe(true);
-      const productId = json[0]._id;
-      return fetchAsTestUser(`/products/${productId}`)
-        .then((resp) => ({ resp, productId }));
-    })
-    .then(({ resp, productId }) => {
-      expect(resp.status).toBe(200);
-      return resp.json().then((json) => ({ json, productId }));
-    })
-    .then(({ json, productId }) => {
-      expect(json).toHaveProperty('id', productId);
-      expect(typeof json.id).toBe('string');
-      expect(typeof json.name).toBe('string');
-      expect(typeof json.price).toBe('number');
-      expect(json).toHaveProperty('dateEntry');
-    })
-    .catch((error) => {
-      throw error;
-    })
+      .then((resp) => {
+        expect(resp.status).toBe(200);
+        return resp.json();
+      })
+      .then((json) => {
+        expect(Array.isArray(json)).toBe(true);
+        expect(json.length > 0).toBe(true);
+        const productId = json[0]._id;
+        return fetchAsTestUser(`/products/${productId}`)
+          .then((resp) => ({ resp, productId }));
+      })
+      .then(({ resp, productId }) => {
+        expect(resp.status).toBe(200);
+        return resp.json().then((json) => ({ json, productId }));
+      })
+      .then(({ json, productId }) => {
+        expect(json).toHaveProperty('id', productId);
+        expect(typeof json.id).toBe('string');
+        expect(typeof json.name).toBe('string');
+        expect(typeof json.price).toBe('number');
+        expect(json).toHaveProperty('dateEntry');
+      })
+      .catch((error) => {
+        throw error;
+      })
   ));
 });
 
@@ -154,9 +154,7 @@ describe('PATCH /products/:productid', () => {
         expect(resp.status).toBe(200);
         return resp.json();
       })
-      .then((json) => {
-        return fetchAsAdmin(`/products/${json.id}`);
-      })
+      .then((json) => fetchAsAdmin(`/products/${json.id}`))
       .then((resp) => {
         expect(resp.status).toBe(200);
         return resp.json();

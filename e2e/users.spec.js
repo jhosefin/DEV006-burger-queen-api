@@ -196,7 +196,7 @@ describe('POST /users', () => {
   it('should fail with 403 when user is already registered', () => (
     fetchAsAdmin('/users', {
       method: 'POST',
-      body: { email: 'test@test.test', password: '123456', role:'user' },
+      body: { email: 'test@test.test', password: '123456', role: 'user' },
     })
       .then((resp) => expect(resp.status).toBe(403))
   ));
