@@ -13,9 +13,7 @@ La API de Burger Queen es una plataforma diseñada para facilitar la gestión y 
 - [Instalación](#instalación)
 - [Uso](#uso)
 - [Documentación](#documentación)
-- [Ejemplos de Código](#ejemplos-de-código)
 - [Contribución](#contribución)
-- [Licencia](#licencia)
 - [Enlaces Adicionales](#enlaces-adicionales)
 
 ## Instalación
@@ -35,5 +33,5 @@ Para obtener información más detallada sobre cómo utilizar la API y acceder a
 Pueden contribuir en la mejora del codigo y en buenas practicas.
 
 ## Enlaces Adicionales
-[Despliegue en Vercel](https://dev-006-burger-queen-api.vercel.app/)
-[GitHub Pages](https://jhosefin.github.io/DEV006-burger-queen-api/)
+- [Despliegue en Vercel](https://dev-006-burger-queen-api.vercel.app/)
+- [GitHub Pages](https://jhosefin.github.io/DEV006-burger-queen-api/)
