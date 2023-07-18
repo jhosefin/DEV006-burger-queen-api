@@ -40,7 +40,7 @@ describe('POST /orders', () => {
       })
       .then(([product, user]) => fetchAsTestUser('/orders', {
         method: 'POST',
-        body: { products: [{ product: {productId: product._id, name: product.name, price: product.price}, qty: 5 }], userId: user.id, client: 'client' },
+        body: { products: [{ product: { productId: product._id, name: product.name, price: product.price }, qty: 5 }], userId: user.id, client: 'client' },
       }))
       .then((resp) => {
         expect(resp.status).toBe(200);
@@ -214,7 +214,7 @@ describe('GET /orders/:orderId', () => {
       })
       .then(([product, user]) => fetchAsTestUser('/orders', {
         method: 'POST',
-        body: { products: [{ product: {productId: product._id, name: product.name, price: product.price}, qty: 5 }], userId: user.id },
+        body: { products: [{ product: { productId: product._id, name: product.name, price: product.price }, qty: 5 }], userId: user.id },
       }))
       .then((resp) => {
         expect(resp.status).toBe(200);
