@@ -7,7 +7,6 @@ const client = new MongoClient(dbUrl);
 module.exports = {
   getProducts: async (req, resp, next) => {
     try {
-      resp.headers.add('Access-Control-Expose-Headers', 'link');
       await client.connect();
       const db = client.db();
       const collection = db.collection('products');
@@ -34,6 +33,7 @@ module.exports = {
       // Ejemplo de respuesta con datos de prueba
       // Agregar los encabezados de enlace a la respuesta
       resp.set('link', Object.values(linkHeaders).join(', '));
+      resp.set('Access-Control-Expose-Headers', 'link');
       resp.send(products);
     } catch (err) {
       /* console.log("mostrar error al traer usuarios de la colección", err); */
