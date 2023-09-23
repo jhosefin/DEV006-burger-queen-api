@@ -7,6 +7,7 @@ const client = new MongoClient(dbUrl);
 module.exports = {
   getProducts: async (req, resp, next) => {
     try {
+      resp.headers.add('Access-Control-Expose-Headers', 'link');
       await client.connect();
       const db = client.db();
       const collection = db.collection('products');
