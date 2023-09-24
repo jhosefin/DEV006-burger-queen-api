@@ -10,8 +10,8 @@ const { port, secret } = config;
 const app = express();
 app.use(cors({
   origin: '*',
-  exposedHeaders: 'Link',
-  allowedHeaders: 'Link',
+  exposedHeaders: 'Link,Authorization',
+  allowedHeaders: 'Link,Authorization',
 }));
 
 app.set('config', config);
