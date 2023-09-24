@@ -10,6 +10,7 @@ const { port, secret } = config;
 const app = express();
 app.use(cors({
   origin: '*',
+  exposedHeaders: '*',
 }));
 
 app.set('config', config);

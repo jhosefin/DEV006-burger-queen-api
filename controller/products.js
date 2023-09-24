@@ -33,7 +33,6 @@ module.exports = {
       // Ejemplo de respuesta con datos de prueba
       // Agregar los encabezados de enlace a la respuesta
       resp.set('link', Object.values(linkHeaders).join(', '));
-      resp.set('Access-Control-Expose-Headers', 'Link');
       resp.send(products);
     } catch (err) {
       /* console.log("mostrar error al traer usuarios de la colección", err); */
