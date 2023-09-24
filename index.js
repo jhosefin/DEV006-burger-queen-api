@@ -11,6 +11,7 @@ const app = express();
 app.use(cors({
   origin: '*',
   exposedHeaders: '*',
+  allowedHeaders: '*',
 }));
 
 app.set('config', config);
